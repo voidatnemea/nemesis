@@ -1,7 +1,7 @@
 {
 	"folders": [
 		{
-			"name": "Backend",
+			"name": "Backend", //Keep the current PHP backend for now to keep the peace and the stability
 			"path": "backend"
 		},
 		{

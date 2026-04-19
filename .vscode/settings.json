@@ -237,5 +237,6 @@
 "[typescript]": {
 	"editor.defaultFormatter": "esbenp.prettier-vscode"
 },
-"kiroAgent.configureMCP": "Disabled" // required to format on save
+"kiroAgent.configureMCP": "Disabled",
+"makefile.configureOnOpen": false // required to format on save
 }

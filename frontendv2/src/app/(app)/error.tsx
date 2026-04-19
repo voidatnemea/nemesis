@@ -1,7 +1,7 @@
 /*
 This file is part of FeatherPanel.
 
-Copyright (C) 2025 MythicalSystems Studios
+Copyright (C) 2025 Nemea Studios
 Copyright (C) 2025 FeatherPanel Contributors
 Copyright (C) 2025 Cassian Gherman (aka NaysKutzu)
 
@@ -212,7 +212,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
                     rel='noopener noreferrer'
                     className='inline-flex items-center gap-1.5 text-primary transition-all duration-200 hover:text-primary/80 hover:underline underline-offset-4 font-medium'
                 >
-                    {t('branding.copyright', { company: 'MythicalSystems' })}
+                    {t('branding.copyright', { company: 'Nemea' })}
                     <svg className='h-3.5 w-3.5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
                         <path
                             strokeLinecap='round'
