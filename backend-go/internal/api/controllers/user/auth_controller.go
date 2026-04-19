@@ -43,7 +43,7 @@ func (t *TwoFactorController) Verify(c *gin.Context) {
 	user.RememberToken = hashedToken
 	database.DB.Save(&user)
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("remember_token", rawToken, 3600*24*30, "/", "", c.Request.TLS != nil, true)
+	c.SetCookie("remember_token", rawToken, 3600*24*30, "/", "", c.Request.TLS != nil, false)
 	utils.Success(c, gin.H{"user": user}, "2FA verified successfully", http.StatusOK)
 }
 

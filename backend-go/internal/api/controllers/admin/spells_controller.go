@@ -96,14 +96,14 @@ func (s *SpellsController) GetByRealm(c *gin.Context) {
 }
 
 func (s *SpellsController) ListVariables(c *gin.Context) {
-	spellID := c.Param("spellId")
+	spellID := c.Param("id")
 	var vars []models.SpellVariable
 	database.DB.Where("spell_id = ?", spellID).Find(&vars)
 	utils.Success(c, vars, "Variables retrieved", http.StatusOK)
 }
 
 func (s *SpellsController) CreateVariable(c *gin.Context) {
-	spellID := c.Param("spellId")
+	spellID := c.Param("id")
 	var req struct {
 		Name         string `json:"name" binding:"required"`
 		Description  string `json:"description"`

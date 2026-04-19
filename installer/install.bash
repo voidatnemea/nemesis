@@ -1501,6 +1501,11 @@ show_wings_menu() {
 	echo -e "     ${BLUE}→ Optional: use for domain-based nodes (Let's Encrypt)${NC}"
 	echo -e "     ${BLUE}→ Skip if home hosting; you can use self-signed or IP in config${NC}"
 	echo ""
+	echo -e "  ${GREEN}${BOLD}[5]${NC} ${BOLD}Configure Wings${NC}"
+	echo -e "     ${BLUE}→ Fetch config from panel and write /etc/featherpanel/config.yml${NC}"
+	echo -e "     ${BLUE}→ Set Wings listening port (default: 443)${NC}"
+	echo -e "     ${BLUE}→ Optionally start the Wings service${NC}"
+	echo ""
 	draw_hr
 }
 
@@ -2297,6 +2302,102 @@ update_wings() {
 	systemctl start featherwings
 
 	log_success "FeatherWings daemon updated successfully."
+}
+
+configure_wings() {
+	log_step "Configuring FeatherWings daemon..."
+
+	if [ -t 1 ]; then clear; fi
+	print_banner
+	draw_hr
+	print_centered "Configure FeatherWings" "$CYAN"
+	draw_hr
+	echo ""
+	echo -e "${BLUE}This will fetch your Wings configuration from the panel and save it to${NC}"
+	echo -e "${BOLD}/etc/featherpanel/config.yml${NC}"
+	echo ""
+	echo -e "${YELLOW}Before continuing, make sure you have:${NC}"
+	echo -e "  ${CYAN}•${NC} Created a node in your FeatherPanel admin panel"
+	echo -e "  ${CYAN}•${NC} Copied the Wings token ID and token secret from the node page"
+	echo ""
+	draw_hr
+	echo ""
+
+	wings_panel_url=""
+	wings_token_id=""
+	wings_token_secret=""
+	wings_port=""
+
+	prompt "${BOLD}Panel URL${NC} ${BLUE}(e.g. https://panel.example.com)${NC}: " wings_panel_url
+	wings_panel_url="${wings_panel_url%/}"
+
+	prompt "${BOLD}Wings Token ID${NC}: " wings_token_id
+	prompt "${BOLD}Wings Token Secret${NC}: " wings_token_secret
+
+	echo ""
+	prompt "${BOLD}Wings listening port${NC} ${BLUE}(default: 443)${NC}: " wings_port
+	wings_port="${wings_port:-443}"
+
+	if [[ ! "$wings_port" =~ ^[0-9]+$ ]] || [ "$wings_port" -lt 1 ] || [ "$wings_port" -gt 65535 ]; then
+		log_error "Invalid port: $wings_port. Using default 443."
+		wings_port="443"
+	fi
+
+	log_info "Fetching configuration from panel..."
+	CONFIG_RESPONSE=$(curl -s -w "\n%{http_code}" \
+		-H "Authorization: Bearer ${wings_token_id}.${wings_token_secret}" \
+		"${wings_panel_url}/api/remote/config" 2>/dev/null)
+
+	HTTP_CODE=$(echo "$CONFIG_RESPONSE" | tail -n1)
+	CONFIG_BODY=$(echo "$CONFIG_RESPONSE" | sed '$d')
+
+	if [ "$HTTP_CODE" != "200" ]; then
+		log_error "Failed to fetch config from panel (HTTP $HTTP_CODE)."
+		log_info "Falling back to manual configuration..."
+
+		mkdir -p /etc/featherpanel
+		cat >/etc/featherpanel/config.yml <<EOF
+debug: false
+uuid: REPLACE_WITH_NODE_UUID
+token_id: ${wings_token_id}
+token: ${wings_token_secret}
+api:
+  host: 0.0.0.0
+  port: ${wings_port}
+  ssl:
+    enabled: false
+    cert: /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem
+    key: /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem
+  upload_limit: 100
+system:
+  data: /var/lib/featherpanel/volumes
+  sftp:
+    bind_port: 2022
+allowed_mounts: []
+remote: '${wings_panel_url}'
+EOF
+		log_warn "A template config has been written to /etc/featherpanel/config.yml"
+		log_warn "Edit it to fill in the correct UUID and SSL paths before starting Wings."
+	else
+		mkdir -p /etc/featherpanel
+		# Write the fetched config, patching the port to the user-specified value
+		echo "$CONFIG_BODY" | sed -E "s/^(  port:) .*/\1 ${wings_port}/" >/etc/featherpanel/config.yml
+		log_success "Configuration saved to /etc/featherpanel/config.yml (port: ${wings_port})"
+	fi
+
+	echo ""
+	start_wings_now=""
+	prompt "${BOLD}Start FeatherWings now?${NC} ${BLUE}(y/n)${NC}: " start_wings_now
+	if [[ "$start_wings_now" =~ ^[yY]$ ]]; then
+		systemctl restart featherwings 2>/dev/null || systemctl start featherwings 2>/dev/null
+		if systemctl is-active --quiet featherwings; then
+			log_success "FeatherWings is running on port ${wings_port}."
+		else
+			log_error "FeatherWings failed to start. Check: journalctl -u featherwings -n 50"
+		fi
+	else
+		log_info "Run 'systemctl start featherwings' when ready."
+	fi
 }
 
 install_proxmox_vnc_agent() {
@@ -5071,14 +5172,14 @@ if [ -f /etc/os-release ]; then
 		fi
 	elif [ "$COMPONENT_TYPE" = "2" ]; then
 		# Wings operations
-		while [[ ! "$INST_TYPE" =~ ^[1-4]$ ]]; do
+		while [[ ! "$INST_TYPE" =~ ^[1-5]$ ]]; do
 			show_wings_menu
 			echo ""
-			prompt "${BOLD}${CYAN}Select operation${NC} ${BLUE}(1/2/3/4)${NC}: " INST_TYPE
-			if [[ ! "$INST_TYPE" =~ ^[1-4]$ ]]; then
+			prompt "${BOLD}${CYAN}Select operation${NC} ${BLUE}(1/2/3/4/5)${NC}: " INST_TYPE
+			if [[ ! "$INST_TYPE" =~ ^[1-5]$ ]]; then
 				echo ""
 				echo -e "${RED}${BOLD}✗ Invalid input!${NC}"
-				echo -e "${YELLOW}Please enter ${BOLD}1${NC} (Install), ${BOLD}2${NC} (Uninstall), ${BOLD}3${NC} (Update), or ${BOLD}4${NC} (SSL)${NC}"
+				echo -e "${YELLOW}Please enter ${BOLD}1${NC} (Install), ${BOLD}2${NC} (Uninstall), ${BOLD}3${NC} (Update), ${BOLD}4${NC} (SSL), or ${BOLD}5${NC} (Configure)${NC}"
 				echo ""
 				sleep 2
 			fi
@@ -6470,6 +6571,20 @@ if [ -f /etc/os-release ]; then
 		install_wings
 		log_success "Wings installation finished. See log at $LOG_FILE"
 		log_info "Configure /etc/featherpanel/config.yml with your Panel URL and, if using a domain, SSL certificate paths (or use IP/self-signed for home hosting)."
+		echo ""
+		draw_hr
+		echo -e "${BOLD}${CYAN}Configure Wings (Port 443)${NC}"
+		draw_hr
+		echo -e "${BLUE}You can automatically fetch your Wings config from the panel now.${NC}"
+		echo -e "${BLUE}This sets Wings to listen on port 443 (recommended).${NC}"
+		echo ""
+		configure_wings_now=""
+		prompt "${BOLD}Configure Wings from panel now?${NC} ${BLUE}(y/n)${NC}: " configure_wings_now
+		if [[ "$configure_wings_now" =~ ^[yY]$ ]]; then
+			configure_wings
+		else
+			log_info "You can configure Wings later via Wings → Configure Wings (option 5)."
+		fi
 
 		# Offer to create an SSL certificate for Wings immediately
 		echo ""
@@ -6529,6 +6644,10 @@ if [ -f /etc/os-release ]; then
 			draw_hr
 			exit 1
 		fi
+	elif [ "$COMPONENT_TYPE" = "2" ] && [ "$INST_TYPE" = "5" ]; then
+		# Wings Configure
+		configure_wings
+		log_success "Wings configuration complete. See log at $LOG_FILE"
 	elif [ "$COMPONENT_TYPE" = "3" ] && [ "$INST_TYPE" = "1" ]; then
 		# CLI Install
 		if [ -f /usr/local/bin/feathercli ]; then

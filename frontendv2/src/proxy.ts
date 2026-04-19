@@ -62,5 +62,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
     /* A simple regex to allow known asset/cdn paths. */
-    matcher: ['/((?!api|_next/static|_next/image|favicon.ico|locales/).*)'],
+    matcher: ['/((?!api|_next/static|_next/image|favicon.ico|locales|assets/).*)'],
 };

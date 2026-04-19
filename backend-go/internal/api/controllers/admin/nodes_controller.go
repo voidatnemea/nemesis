@@ -22,7 +22,21 @@ func (n *NodesController) Index(c *gin.Context) {
 	}
 	q.Count(&total)
 	q.Offset(p.Offset).Limit(p.PerPage).Find(&nodes)
-	utils.Success(c, gin.H{"data": nodes, "total": total, "page": p.Page, "per_page": p.PerPage}, "Nodes retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"nodes": nodes, "pagination": utils.BuildPagination(p, total)}, "Nodes retrieved", http.StatusOK)
+}
+
+func (n *NodesController) GetIPs(c *gin.Context) {
+	nodeID := c.Param("id")
+	type ipRow struct {
+		IP string
+	}
+	var rows []ipRow
+	database.DB.Raw("SELECT DISTINCT ip FROM featherpanel_allocations WHERE node_id = ?", nodeID).Scan(&rows)
+	ips := make([]string, 0, len(rows))
+	for _, r := range rows {
+		ips = append(ips, r.IP)
+	}
+	utils.Success(c, gin.H{"ips": gin.H{"ip_addresses": ips}}, "IPs retrieved", http.StatusOK)
 }
 
 func (n *NodesController) Show(c *gin.Context) {

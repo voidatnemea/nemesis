@@ -12,9 +12,12 @@ import (
 type RolesController struct{}
 
 func (r *RolesController) Index(c *gin.Context) {
+	p := utils.GetPagination(c)
 	var roles []models.Role
-	database.DB.Find(&roles)
-	utils.Success(c, roles, "Roles retrieved", http.StatusOK)
+	var total int64
+	database.DB.Model(&models.Role{}).Count(&total)
+	database.DB.Offset(p.Offset).Limit(p.PerPage).Find(&roles)
+	utils.Success(c, gin.H{"roles": roles, "pagination": utils.BuildPagination(p, total)}, "Roles retrieved", http.StatusOK)
 }
 
 func (r *RolesController) Show(c *gin.Context) {
@@ -80,7 +83,7 @@ func (p *PermissionsController) Index(c *gin.Context) {
 		q = q.Where("role_id = ?", roleID)
 	}
 	q.Find(&perms)
-	utils.Success(c, perms, "Permissions retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"permissions": perms}, "Permissions retrieved", http.StatusOK)
 }
 
 func (p *PermissionsController) Show(c *gin.Context) {

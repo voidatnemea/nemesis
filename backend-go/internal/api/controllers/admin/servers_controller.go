@@ -22,7 +22,7 @@ func (s *ServersController) Index(c *gin.Context) {
 	}
 	q.Count(&total)
 	q.Offset(p.Offset).Limit(p.PerPage).Find(&servers)
-	utils.Success(c, gin.H{"data": servers, "total": total, "page": p.Page, "per_page": p.PerPage}, "Servers retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"servers": servers, "pagination": utils.BuildPagination(p, total)}, "Servers retrieved", http.StatusOK)
 }
 
 func (s *ServersController) Show(c *gin.Context) {

@@ -16,7 +16,7 @@ func (a *ApiClientController) GetApiClients(c *gin.Context) {
 	user := ctxUser.(models.User)
 	var clients []models.ApiClient
 	database.DB.Where("user_uuid = ?", user.UUID).Find(&clients)
-	utils.Success(c, clients, "API clients retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"api_clients": clients}, "API clients retrieved", http.StatusOK)
 }
 
 func (a *ApiClientController) GetApiClient(c *gin.Context) {

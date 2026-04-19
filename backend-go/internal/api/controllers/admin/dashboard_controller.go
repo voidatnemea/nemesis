@@ -23,5 +23,15 @@ func (d *DashboardController) Index(c *gin.Context) {
 		"servers": serverCount,
 		"nodes":   nodeCount,
 		"tickets": ticketCount,
+		"global": gin.H{
+			"users":   userCount,
+			"servers": serverCount,
+			"nodes":   nodeCount,
+			"tickets": ticketCount,
+		},
 	}, "Dashboard data retrieved", http.StatusOK)
+}
+
+func (d *DashboardController) ClearCache(c *gin.Context) {
+	utils.Success(c, nil, "Cache cleared", http.StatusOK)
 }

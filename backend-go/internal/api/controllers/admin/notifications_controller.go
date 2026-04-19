@@ -12,9 +12,12 @@ import (
 type NotificationsController struct{}
 
 func (n *NotificationsController) Index(c *gin.Context) {
+	p := utils.GetPagination(c)
 	var notifications []models.Notification
-	database.DB.Order("created_at DESC").Find(&notifications)
-	utils.Success(c, notifications, "Notifications retrieved", http.StatusOK)
+	var total int64
+	database.DB.Model(&models.Notification{}).Count(&total)
+	database.DB.Order("created_at DESC").Offset(p.Offset).Limit(p.PerPage).Find(&notifications)
+	utils.Success(c, gin.H{"notifications": notifications, "pagination": utils.BuildPagination(p, total)}, "Notifications retrieved", http.StatusOK)
 }
 
 func (n *NotificationsController) Show(c *gin.Context) {
@@ -32,19 +35,24 @@ func (n *NotificationsController) Create(c *gin.Context) {
 		Title           string `json:"title" binding:"required"`
 		MessageMarkdown string `json:"message_markdown" binding:"required"`
 		Type            string `json:"type" binding:"required"`
-		IsDismissible   string `json:"is_dismissible"`
-		IsSticky        string `json:"is_sticky"`
+		IsDismissible   *bool  `json:"is_dismissible"`
+		IsSticky        *bool  `json:"is_sticky"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Error(c, err.Error(), "INVALID_REQUEST", http.StatusBadRequest, nil)
 		return
 	}
-	if req.IsDismissible == "" {
-		req.IsDismissible = "true"
+	dismissible := "true"
+	if req.IsDismissible != nil && !*req.IsDismissible {
+		dismissible = "false"
+	}
+	sticky := "false"
+	if req.IsSticky != nil && *req.IsSticky {
+		sticky = "true"
 	}
 	notif := models.Notification{
 		Title: req.Title, MessageMarkdown: req.MessageMarkdown, Type: req.Type,
-		IsDismissible: req.IsDismissible, IsSticky: req.IsSticky,
+		IsDismissible: dismissible, IsSticky: sticky,
 	}
 	database.DB.Create(&notif)
 	utils.Success(c, notif, "Notification created", http.StatusCreated)

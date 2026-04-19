@@ -11,10 +11,30 @@ import (
 
 type LocationsController struct{}
 
+var countryCodes = map[string]string{
+	"AF": "Afghanistan", "AL": "Albania", "DZ": "Algeria", "AR": "Argentina", "AU": "Australia",
+	"AT": "Austria", "BE": "Belgium", "BR": "Brazil", "CA": "Canada", "CL": "Chile",
+	"CN": "China", "CO": "Colombia", "HR": "Croatia", "CZ": "Czech Republic", "DK": "Denmark",
+	"EG": "Egypt", "FI": "Finland", "FR": "France", "DE": "Germany", "GR": "Greece",
+	"HK": "Hong Kong", "HU": "Hungary", "IN": "India", "ID": "Indonesia", "IE": "Ireland",
+	"IL": "Israel", "IT": "Italy", "JP": "Japan", "KR": "South Korea", "MX": "Mexico",
+	"NL": "Netherlands", "NZ": "New Zealand", "NO": "Norway", "PL": "Poland", "PT": "Portugal",
+	"RO": "Romania", "RU": "Russia", "SA": "Saudi Arabia", "SG": "Singapore", "ZA": "South Africa",
+	"ES": "Spain", "SE": "Sweden", "CH": "Switzerland", "TW": "Taiwan", "TR": "Turkey",
+	"UA": "Ukraine", "GB": "United Kingdom", "US": "United States", "VN": "Vietnam",
+}
+
 func (l *LocationsController) Index(c *gin.Context) {
+	p := utils.GetPagination(c)
 	var locations []models.Location
-	database.DB.Find(&locations)
-	utils.Success(c, locations, "Locations retrieved", http.StatusOK)
+	var total int64
+	database.DB.Model(&models.Location{}).Count(&total)
+	database.DB.Offset(p.Offset).Limit(p.PerPage).Find(&locations)
+	utils.Success(c, gin.H{
+		"locations":    locations,
+		"pagination":   utils.BuildPagination(p, total),
+		"country_codes": countryCodes,
+	}, "Locations retrieved", http.StatusOK)
 }
 
 func (l *LocationsController) Show(c *gin.Context) {
@@ -24,7 +44,7 @@ func (l *LocationsController) Show(c *gin.Context) {
 		utils.Error(c, "Location not found", "NOT_FOUND", http.StatusNotFound, nil)
 		return
 	}
-	utils.Success(c, location, "Location retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"location": location}, "Location retrieved", http.StatusOK)
 }
 
 func (l *LocationsController) Create(c *gin.Context) {

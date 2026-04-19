@@ -2,6 +2,7 @@ package user
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mythicalsystems/nemesis-backend/internal/database"
@@ -14,9 +15,45 @@ type ServerUserController struct{}
 func (s *ServerUserController) GetUserServers(c *gin.Context) {
 	ctxUser, _ := c.Get("user")
 	user := ctxUser.(models.User)
+
+	page := max(1, intQuery(c, "page", 1))
+	perPage := max(1, intQuery(c, "per_page", 10))
+	if perPage > 100 {
+		perPage = 100
+	}
+	offset := (page - 1) * perPage
+
+	var total int64
+	database.DB.Model(&models.Server{}).Where("owner_id = ?", user.ID).Count(&total)
+
 	var servers []models.Server
-	database.DB.Where("owner_id = ?", user.ID).Find(&servers)
-	utils.Success(c, servers, "Servers retrieved", http.StatusOK)
+	database.DB.Where("owner_id = ?", user.ID).Limit(perPage).Offset(offset).Find(&servers)
+
+	totalPages := int((total + int64(perPage) - 1) / int64(perPage))
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	utils.Success(c, gin.H{
+		"servers": servers,
+		"pagination": gin.H{
+			"current_page":  page,
+			"per_page":      perPage,
+			"total_records": total,
+			"total_pages":   totalPages,
+			"has_next":      page < totalPages,
+			"has_prev":      page > 1,
+			"from":          offset + 1,
+			"to":            min(offset+perPage, int(total)),
+		},
+	}, "Servers retrieved", http.StatusOK)
+}
+
+func intQuery(c *gin.Context, key string, def int) int {
+	v, err := strconv.Atoi(c.DefaultQuery(key, strconv.Itoa(def)))
+	if err != nil {
+		return def
+	}
+	return v
 }
 
 func (s *ServerUserController) GetServer(c *gin.Context) {

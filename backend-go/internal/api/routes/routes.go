@@ -41,8 +41,15 @@ func Register(r *gin.Engine) {
 
 	// System / public
 	sysCtrl := &system.SystemController{}
+	api.GET("/selftest", sysCtrl.SelfTest)
 	api.GET("/system/settings", sysCtrl.GetSettings)
 	api.GET("/system/oidc/providers", sysCtrl.GetOidcProviders)
+	api.GET("/system/plugin-css", sysCtrl.GetPluginCSS)
+	api.GET("/system/plugin-js", sysCtrl.GetPluginJS)
+	api.GET("/system/plugin-widgets", sysCtrl.GetPluginWidgets)
+	api.GET("/system/plugin-sidebar", sysCtrl.GetPluginSidebar)
+	api.GET("/system/translations/languages", sysCtrl.GetTranslationLanguages)
+	api.GET("/system/translations/:lang", sysCtrl.GetTranslation)
 
 	// ── Authenticated user routes ──────────────────────────────────────────────
 	user := api.Group("/user")
@@ -71,6 +78,7 @@ func Register(r *gin.Engine) {
 		user.GET("/ssh-keys/:id", sshKeys.GetUserSshKey)
 		user.PUT("/ssh-keys/:id", sshKeys.UpdateUserSshKey)
 		user.DELETE("/ssh-keys/:id", sshKeys.DeleteUserSshKey)
+		user.DELETE("/ssh-keys/:id/hard-delete", sshKeys.HardDeleteUserSshKey)
 
 		// Tickets
 		tickets := &userctrl.UserTicketsController{}
@@ -88,6 +96,23 @@ func Register(r *gin.Engine) {
 		user.GET("/knowledgebase/categories", kb.GetCategories)
 		user.GET("/knowledgebase/articles", kb.GetArticles)
 		user.GET("/knowledgebase/articles/:id", kb.GetArticle)
+
+		// Activities
+		activitiesCtrl := &userctrl.UserActivitiesController{}
+		user.GET("/activities", activitiesCtrl.Index)
+
+		// VM instances
+		vmCtrl := &userctrl.VmInstancesController{}
+		user.GET("/vm-instances", vmCtrl.Index)
+
+		// Mails
+		mailsCtrl := &userctrl.UserMailsController{}
+		user.GET("/mails", mailsCtrl.Index)
+
+		// Preferences
+		prefsCtrl := &userctrl.UserPreferencesController{}
+		user.GET("/preferences", prefsCtrl.Get)
+		user.PATCH("/preferences", prefsCtrl.Update)
 
 		// Notifications
 		notifCtrl := &system.NotificationsController{}
@@ -141,6 +166,7 @@ func Register(r *gin.Engine) {
 		// Dashboard
 		dash := &admin.DashboardController{}
 		adminGroup.GET("/dashboard", dash.Index)
+		adminGroup.POST("/dashboard/cache/clear", dash.ClearCache)
 
 		// Users
 		usersCtrl := &admin.UsersController{}
@@ -163,6 +189,7 @@ func Register(r *gin.Engine) {
 		adminGroup.PATCH("/nodes/:id", nodesCtrl.Update)
 		adminGroup.DELETE("/nodes/:id", nodesCtrl.Delete)
 		adminGroup.POST("/nodes/:id/reset-key", nodesCtrl.ResetKey)
+		adminGroup.GET("/nodes/:id/ips", nodesCtrl.GetIPs)
 
 		// Servers
 		serversCtrl := &admin.ServersController{}
@@ -236,6 +263,7 @@ func Register(r *gin.Engine) {
 		adminGroup.GET("/mounts/:id", mountsCtrl.Show)
 		adminGroup.PATCH("/mounts/:id", mountsCtrl.Update)
 		adminGroup.DELETE("/mounts/:id", mountsCtrl.Delete)
+		adminGroup.PATCH("/mounts/:id/links", mountsCtrl.UpdateLinks)
 
 		// Spells
 		spellsCtrl := &admin.SpellsController{}
@@ -245,8 +273,8 @@ func Register(r *gin.Engine) {
 		adminGroup.GET("/spells/:id", spellsCtrl.Show)
 		adminGroup.PATCH("/spells/:id", spellsCtrl.Update)
 		adminGroup.DELETE("/spells/:id", spellsCtrl.Delete)
-		adminGroup.GET("/spells/:spellId/variables", spellsCtrl.ListVariables)
-		adminGroup.POST("/spells/:spellId/variables", spellsCtrl.CreateVariable)
+		adminGroup.GET("/spells/:id/variables", spellsCtrl.ListVariables)
+		adminGroup.POST("/spells/:id/variables", spellsCtrl.CreateVariable)
 		adminGroup.PATCH("/spell-variables/:id", spellsCtrl.UpdateVariable)
 		adminGroup.DELETE("/spell-variables/:id", spellsCtrl.DeleteVariable)
 
@@ -333,14 +361,81 @@ func Register(r *gin.Engine) {
 		adminGroup.PATCH("/notifications/:id", notifsCtrl.Update)
 		adminGroup.DELETE("/notifications/:id", notifsCtrl.Delete)
 
+		// Node status
+		nodeStatusCtrl := &admin.NodeStatusController{}
+		adminGroup.GET("/nodes/status/global", nodeStatusCtrl.GlobalStatus)
+
+		// Log viewer
+		logCtrl := &admin.LogViewerController{}
+		adminGroup.GET("/log-viewer/files", logCtrl.Files)
+		adminGroup.GET("/log-viewer/get", logCtrl.Get)
+		adminGroup.DELETE("/log-viewer/clear", logCtrl.Clear)
+		adminGroup.POST("/log-viewer/upload", logCtrl.Upload)
+
+		// Storage sense
+		storageCtrl := &admin.StorageSenseController{}
+		adminGroup.GET("/storage-sense", storageCtrl.Summary)
+		adminGroup.POST("/storage-sense/purge", storageCtrl.Purge)
+		adminGroup.POST("/storage-sense/purge-batch", storageCtrl.PurgeBatch)
+
+		// FeatherZeroTrust (anti-abuse)
+		ztCtrl := &admin.ZeroTrustController{}
+		adminGroup.GET("/featherzerotrust/config", ztCtrl.GetConfig)
+		adminGroup.PUT("/featherzerotrust/config", ztCtrl.UpdateConfig)
+		adminGroup.GET("/featherzerotrust/hashes", ztCtrl.ListHashes)
+		adminGroup.POST("/featherzerotrust/hashes", ztCtrl.AddHash)
+		adminGroup.GET("/featherzerotrust/hashes/stats", ztCtrl.HashStats)
+		adminGroup.DELETE("/featherzerotrust/hashes/:id", ztCtrl.DeleteHash)
+		adminGroup.POST("/featherzerotrust/hashes/check", ztCtrl.CheckHash)
+		adminGroup.POST("/featherzerotrust/hashes/bulk/confirm", ztCtrl.BulkConfirm)
+		adminGroup.DELETE("/featherzerotrust/hashes/bulk/delete", ztCtrl.BulkDelete)
+		adminGroup.GET("/featherzerotrust/logs", ztCtrl.ListLogs)
+		adminGroup.GET("/featherzerotrust/logs/:executionId", ztCtrl.GetLog)
+		adminGroup.POST("/featherzerotrust/scan", ztCtrl.Scan)
+		adminGroup.POST("/featherzerotrust/scan/batch", ztCtrl.ScanBatch)
+
+		// Rate limits
+		rlCtrl := &admin.RateLimitsController{}
+		adminGroup.GET("/rate-limits", rlCtrl.GetAll)
+		adminGroup.POST("/rate-limits/global", rlCtrl.SetGlobal)
+		adminGroup.PUT("/rate-limits/bulk", rlCtrl.BulkUpdate)
+		adminGroup.PUT("/rate-limits/route", rlCtrl.UpdateRoute)
+
 		// Subdomains
 		subdomainsCtrl := &admin.AdminSubdomainsController{}
 		adminGroup.GET("/subdomains", subdomainsCtrl.Index)
 		adminGroup.PUT("/subdomains", subdomainsCtrl.Create)
+		adminGroup.GET("/subdomains/settings", subdomainsCtrl.GetSettings)
+		adminGroup.PATCH("/subdomains/settings", subdomainsCtrl.UpdateSettings)
+		adminGroup.GET("/subdomains/spells", subdomainsCtrl.ListSpells)
 		adminGroup.GET("/subdomains/:uuid", subdomainsCtrl.Show)
 		adminGroup.PATCH("/subdomains/:uuid", subdomainsCtrl.Update)
 		adminGroup.DELETE("/subdomains/:uuid", subdomainsCtrl.Delete)
 		adminGroup.GET("/subdomains/:uuid/subdomains", subdomainsCtrl.ListSubdomains)
+
+		// Mail templates
+		mailCtrl := &admin.MailTemplatesController{}
+		adminGroup.GET("/mail-templates", mailCtrl.Index)
+		adminGroup.POST("/mail-templates", mailCtrl.Create)
+		adminGroup.POST("/mail-templates/test-email", mailCtrl.TestEmail)
+		adminGroup.POST("/mail-templates/mass-email", mailCtrl.MassEmail)
+		adminGroup.GET("/mail-templates/:id", mailCtrl.Show)
+		adminGroup.PATCH("/mail-templates/:id", mailCtrl.Update)
+		adminGroup.DELETE("/mail-templates/:id", mailCtrl.Delete)
+
+		// Translations
+		trCtrl := &admin.TranslationsController{}
+		adminGroup.GET("/translations", trCtrl.Index)
+		adminGroup.POST("/translations/upload", trCtrl.Upload)
+		adminGroup.GET("/translations/:lang", trCtrl.Get)
+		adminGroup.PUT("/translations/:lang", trCtrl.Save)
+		adminGroup.POST("/translations/:lang", trCtrl.Create)
+		adminGroup.DELETE("/translations/:lang", trCtrl.Delete)
+		adminGroup.GET("/translations/:lang/download", trCtrl.Download)
+
+		// Chatbot system prompt
+		adminGroup.GET("/settings/chatbot/system-prompt", settingsCtrl.GetChatbotSystemPrompt)
+		adminGroup.PATCH("/settings/chatbot/system-prompt", settingsCtrl.UpdateChatbotSystemPrompt)
 	}
 
 	// ── Wings/remote routes ────────────────────────────────────────────────────

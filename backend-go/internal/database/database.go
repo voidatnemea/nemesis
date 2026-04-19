@@ -3,9 +3,11 @@ package database
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/mythicalsystems/nemesis-backend/internal/config"
+	"github.com/mythicalsystems/nemesis-backend/internal/models"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -22,8 +24,12 @@ func Init(cfg *config.Config) error {
 		cfg.DatabaseUser, cfg.DatabasePass, cfg.DatabaseHost, cfg.DatabasePort, cfg.DatabaseName)
 
 	var err error
+	logLevel := logger.Info
+	if os.Getenv("DB_SILENT") == "1" {
+		logLevel = logger.Silent
+	}
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
@@ -36,6 +42,53 @@ func Init(cfg *config.Config) error {
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	// Auto-migrate all models
+	if err := DB.AutoMigrate(
+		&models.User{},
+		&models.Role{},
+		&models.Permission{},
+		&models.Setting{},
+		&models.Location{},
+		&models.Node{},
+		&models.Realm{},
+		&models.Spell{},
+		&models.SpellVariable{},
+		&models.Mount{},
+		&models.Image{},
+		&models.Allocation{},
+		&models.Server{},
+		&models.ServerVariable{},
+		&models.ServerActivity{},
+		&models.ServerDatabase{},
+		&models.ServerSchedule{},
+		&models.Backup{},
+		&models.DatabaseInstance{},
+		&models.ApiClient{},
+		&models.UserSshKey{},
+		&models.UserPreference{},
+		&models.Ticket{},
+		&models.TicketMessage{},
+		&models.KnowledgebaseCategory{},
+		&models.KnowledgebaseArticle{},
+		&models.KnowledgebaseArticleTag{},
+		&models.KnowledgebaseArticleAttachment{},
+		&models.Notification{},
+		&models.MailTemplate{},
+		&models.MailQueue{},
+		&models.OidcProvider{},
+		&models.SsoToken{},
+		&models.Activity{},
+		&models.TimedTask{},
+		&models.InstalledPlugin{},
+		&models.SubdomainDomain{},
+		&models.Subdomain{},
+		&models.ZeroTrustHash{},
+		&models.ZeroTrustScanExecution{},
+		&models.ZeroTrustScanLog{},
+	); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	// Initialize Redis
 	Redis = redis.NewClient(&redis.Options{

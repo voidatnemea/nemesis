@@ -22,7 +22,7 @@ func (a *AllocationsController) Index(c *gin.Context) {
 	}
 	q.Count(&total)
 	q.Offset(p.Offset).Limit(p.PerPage).Find(&allocs)
-	utils.Success(c, gin.H{"data": allocs, "total": total}, "Allocations retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"allocations": allocs, "pagination": utils.BuildPagination(p, total)}, "Allocations retrieved", http.StatusOK)
 }
 
 func (a *AllocationsController) Show(c *gin.Context) {

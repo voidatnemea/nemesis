@@ -12,9 +12,12 @@ import (
 type RealmsController struct{}
 
 func (r *RealmsController) Index(c *gin.Context) {
+	p := utils.GetPagination(c)
 	var realms []models.Realm
-	database.DB.Find(&realms)
-	utils.Success(c, realms, "Realms retrieved", http.StatusOK)
+	var total int64
+	database.DB.Model(&models.Realm{}).Count(&total)
+	database.DB.Offset(p.Offset).Limit(p.PerPage).Find(&realms)
+	utils.Success(c, gin.H{"realms": realms, "pagination": utils.BuildPagination(p, total)}, "Realms retrieved", http.StatusOK)
 }
 
 func (r *RealmsController) Show(c *gin.Context) {

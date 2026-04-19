@@ -22,7 +22,7 @@ func (t *AdminTicketsController) Index(c *gin.Context) {
 	}
 	q.Count(&total)
 	q.Offset(p.Offset).Limit(p.PerPage).Find(&tickets)
-	utils.Success(c, gin.H{"data": tickets, "total": total}, "Tickets retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"tickets": tickets, "pagination": utils.BuildPagination(p, total)}, "Tickets retrieved", http.StatusOK)
 }
 
 func (t *AdminTicketsController) Show(c *gin.Context) {
@@ -105,7 +105,7 @@ type TicketCategoriesController struct{}
 func (tc *TicketCategoriesController) Index(c *gin.Context) {
 	var cats []models.TicketCategory
 	database.DB.Find(&cats)
-	utils.Success(c, cats, "Categories retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"categories": cats}, "Categories retrieved", http.StatusOK)
 }
 
 func (tc *TicketCategoriesController) Show(c *gin.Context) {
@@ -165,7 +165,7 @@ type TicketStatusesController struct{}
 func (ts *TicketStatusesController) Index(c *gin.Context) {
 	var statuses []models.TicketStatus
 	database.DB.Find(&statuses)
-	utils.Success(c, statuses, "Statuses retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"statuses": statuses}, "Statuses retrieved", http.StatusOK)
 }
 
 func (ts *TicketStatusesController) Show(c *gin.Context) {
@@ -218,7 +218,7 @@ type TicketPrioritiesController struct{}
 func (tp *TicketPrioritiesController) Index(c *gin.Context) {
 	var priorities []models.TicketPriority
 	database.DB.Find(&priorities)
-	utils.Success(c, priorities, "Priorities retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"priorities": priorities}, "Priorities retrieved", http.StatusOK)
 }
 
 func (tp *TicketPrioritiesController) Show(c *gin.Context) {

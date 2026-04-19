@@ -12,9 +12,12 @@ import (
 type KnowledgebaseController struct{}
 
 func (k *KnowledgebaseController) CategoriesIndex(c *gin.Context) {
+	p := utils.GetPagination(c)
 	var cats []models.KnowledgebaseCategory
-	database.DB.Order("position ASC").Find(&cats)
-	utils.Success(c, cats, "Categories retrieved", http.StatusOK)
+	var total int64
+	database.DB.Model(&models.KnowledgebaseCategory{}).Count(&total)
+	database.DB.Order("position ASC").Offset(p.Offset).Limit(p.PerPage).Find(&cats)
+	utils.Success(c, gin.H{"categories": cats, "pagination": utils.BuildPagination(p, total)}, "Categories retrieved", http.StatusOK)
 }
 
 func (k *KnowledgebaseController) CategoriesShow(c *gin.Context) {
@@ -82,7 +85,7 @@ func (k *KnowledgebaseController) ArticlesIndex(c *gin.Context) {
 	}
 	q.Count(&total)
 	q.Offset(p.Offset).Limit(p.PerPage).Find(&articles)
-	utils.Success(c, gin.H{"data": articles, "total": total}, "Articles retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"articles": articles, "pagination": utils.BuildPagination(p, total)}, "Articles retrieved", http.StatusOK)
 }
 
 func (k *KnowledgebaseController) ArticlesShow(c *gin.Context) {

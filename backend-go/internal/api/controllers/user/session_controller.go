@@ -20,10 +20,19 @@ func (s *SessionController) Get(c *gin.Context) {
 	database.DB.Where("role_id = ?", user.RoleID).Find(&perms)
 	var notifs []models.Notification
 	database.DB.Order("created_at DESC").Limit(5).Find(&notifs)
+	permStrings := make([]string, 0, len(perms)+1)
+	// role_id 1 is super-admin — always grant the root permission so the
+	// frontend admin UI is unlocked regardless of the permissions table state.
+	if user.RoleID == 1 {
+		permStrings = append(permStrings, "admin.root")
+	}
+	for _, p := range perms {
+		permStrings = append(permStrings, p.Permission)
+	}
 	utils.Success(c, gin.H{
-		"user":          user,
+		"user_info":     user,
 		"role":          role,
-		"permissions":   perms,
+		"permissions":   permStrings,
 		"notifications": notifs,
 	}, "Session retrieved", http.StatusOK)
 }

@@ -63,9 +63,9 @@ func (a *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	// Set cookie
+	// Set cookie — httpOnly=false so the client-side JS auth guard can read it
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("remember_token", rawToken, 3600*24*30, "/", "", c.Request.TLS != nil, true)
+	c.SetCookie("remember_token", rawToken, 3600*24*30, "/", "", c.Request.TLS != nil, false)
 
 	utils.Success(c, gin.H{
 		"user": user,
@@ -120,9 +120,8 @@ func (a *AuthController) Register(c *gin.Context) {
 		return
 	}
 
-	// Set cookie
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("remember_token", rawToken, 3600*24*30, "/", "", c.Request.TLS != nil, true)
+	c.SetCookie("remember_token", rawToken, 3600*24*30, "/", "", c.Request.TLS != nil, false)
 
 	utils.Success(c, gin.H{
 		"user": user,
@@ -138,6 +137,6 @@ func (a *AuthController) Logout(c *gin.Context) {
 	}
 
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("remember_token", "", -1, "/", "", c.Request.TLS != nil, true)
+	c.SetCookie("remember_token", "", -1, "/", "", c.Request.TLS != nil, false)
 	utils.Success(c, nil, "User logged out successfully", http.StatusOK)
 }

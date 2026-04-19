@@ -12,9 +12,12 @@ import (
 type ImagesController struct{}
 
 func (i *ImagesController) Index(c *gin.Context) {
+	p := utils.GetPagination(c)
 	var images []models.Image
-	database.DB.Find(&images)
-	utils.Success(c, images, "Images retrieved", http.StatusOK)
+	var total int64
+	database.DB.Model(&models.Image{}).Count(&total)
+	database.DB.Offset(p.Offset).Limit(p.PerPage).Find(&images)
+	utils.Success(c, gin.H{"images": images, "pagination": utils.BuildPagination(p, total)}, "Images retrieved", http.StatusOK)
 }
 
 func (i *ImagesController) Show(c *gin.Context) {

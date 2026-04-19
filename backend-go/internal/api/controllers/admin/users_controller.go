@@ -15,16 +15,35 @@ type UsersController struct{}
 func (u *UsersController) Index(c *gin.Context) {
 	p := utils.GetPagination(c)
 	search := c.Query("search")
+
 	var users []models.User
 	var total int64
 	q := database.DB.Model(&models.User{})
 	if search != "" {
-		q = q.Where("username LIKE ? OR email LIKE ? OR first_name LIKE ? OR last_name LIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		like := "%" + search + "%"
+		q = q.Where("username LIKE ? OR email LIKE ? OR first_name LIKE ? OR last_name LIKE ?", like, like, like, like)
+	}
+	if role := c.Query("role"); role != "" {
+		q = q.Where("role_id = ?", role)
+	}
+	if banned := c.Query("banned"); banned != "" {
+		q = q.Where("banned = ?", banned)
 	}
 	q.Count(&total)
 	q.Offset(p.Offset).Limit(p.PerPage).Find(&users)
-	utils.Success(c, gin.H{"data": users, "total": total, "page": p.Page, "per_page": p.PerPage}, "Users retrieved", http.StatusOK)
+
+	var roles []models.Role
+	database.DB.Find(&roles)
+	rolesMap := make(map[uint]models.Role, len(roles))
+	for _, r := range roles {
+		rolesMap[r.ID] = r
+	}
+
+	utils.Success(c, gin.H{
+		"users":      users,
+		"roles":      rolesMap,
+		"pagination": utils.BuildPagination(p, total),
+	}, "Users retrieved", http.StatusOK)
 }
 
 func (u *UsersController) Show(c *gin.Context) {
@@ -34,7 +53,9 @@ func (u *UsersController) Show(c *gin.Context) {
 		utils.Error(c, "User not found", "NOT_FOUND", http.StatusNotFound, nil)
 		return
 	}
-	utils.Success(c, user, "User retrieved", http.StatusOK)
+	var role models.Role
+	database.DB.First(&role, user.RoleID)
+	utils.Success(c, gin.H{"user": user, "role": role}, "User retrieved", http.StatusOK)
 }
 
 func (u *UsersController) ShowByExternalID(c *gin.Context) {
@@ -73,7 +94,7 @@ func (u *UsersController) Create(c *gin.Context) {
 	}
 	roleID := req.RoleID
 	if roleID == 0 {
-		roleID = 1
+		roleID = 2
 	}
 	user := models.User{
 		UUID:      utils.GenerateUUID(),
@@ -103,7 +124,6 @@ func (u *UsersController) Update(c *gin.Context) {
 		utils.Error(c, err.Error(), "INVALID_REQUEST", http.StatusBadRequest, nil)
 		return
 	}
-	// Hash password if provided
 	if pw, ok := req["password"].(string); ok && pw != "" {
 		hashed, _ := utils.HashPassword(pw)
 		req["password"] = hashed
@@ -132,24 +152,18 @@ func (u *UsersController) OwnedServers(c *gin.Context) {
 	}
 	var servers []models.Server
 	database.DB.Where("owner_id = ?", user.ID).Find(&servers)
-	utils.Success(c, servers, "Servers retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"servers": servers}, "Servers retrieved", http.StatusOK)
 }
 
 func (u *UsersController) Ban(c *gin.Context) {
 	uuid := c.Param("uuid")
-	if err := database.DB.Model(&models.User{}).Where("uuid = ?", uuid).Update("banned", "true").Error; err != nil {
-		utils.Error(c, "Failed to ban user", "DATABASE_ERROR", http.StatusInternalServerError, nil)
-		return
-	}
+	database.DB.Model(&models.User{}).Where("uuid = ?", uuid).Update("banned", "true")
 	utils.Success(c, nil, "User banned", http.StatusOK)
 }
 
 func (u *UsersController) Unban(c *gin.Context) {
 	uuid := c.Param("uuid")
-	if err := database.DB.Model(&models.User{}).Where("uuid = ?", uuid).Update("banned", "false").Error; err != nil {
-		utils.Error(c, "Failed to unban user", "DATABASE_ERROR", http.StatusInternalServerError, nil)
-		return
-	}
+	database.DB.Model(&models.User{}).Where("uuid = ?", uuid).Update("banned", "false")
 	utils.Success(c, nil, "User unbanned", http.StatusOK)
 }
 

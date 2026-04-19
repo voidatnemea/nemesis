@@ -12,9 +12,21 @@ import (
 type MountsController struct{}
 
 func (m *MountsController) Index(c *gin.Context) {
+	p := utils.GetPagination(c)
 	var mounts []models.Mount
-	database.DB.Find(&mounts)
-	utils.Success(c, mounts, "Mounts retrieved", http.StatusOK)
+	var total int64
+	database.DB.Model(&models.Mount{}).Count(&total)
+	database.DB.Offset(p.Offset).Limit(p.PerPage).Find(&mounts)
+	var nodes []models.Node
+	database.DB.Find(&nodes)
+	var spells []models.Spell
+	database.DB.Find(&spells)
+	utils.Success(c, gin.H{
+		"mounts":     mounts,
+		"pagination": utils.BuildPagination(p, total),
+		"nodes":      nodes,
+		"spells":     spells,
+	}, "Mounts retrieved", http.StatusOK)
 }
 
 func (m *MountsController) Show(c *gin.Context) {
@@ -45,7 +57,25 @@ func (m *MountsController) Create(c *gin.Context) {
 		Target: req.Target, ReadOnly: req.ReadOnly, UserMountable: req.UserMountable,
 	}
 	database.DB.Create(&mount)
-	utils.Success(c, mount, "Mount created", http.StatusCreated)
+	utils.Success(c, gin.H{"mount_id": mount.ID, "mount": mount}, "Mount created", http.StatusCreated)
+}
+
+func (m *MountsController) UpdateLinks(c *gin.Context) {
+	id := c.Param("id")
+	var mount models.Mount
+	if err := database.DB.First(&mount, id).Error; err != nil {
+		utils.Error(c, "Mount not found", "NOT_FOUND", http.StatusNotFound, nil)
+		return
+	}
+	var req struct {
+		Nodes  []int `json:"nodes"`
+		Spells []int `json:"spells"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, err.Error(), "INVALID_REQUEST", http.StatusBadRequest, nil)
+		return
+	}
+	utils.Success(c, mount, "Mount links updated", http.StatusOK)
 }
 
 func (m *MountsController) Update(c *gin.Context) {

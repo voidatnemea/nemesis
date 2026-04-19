@@ -16,7 +16,15 @@ func (s *UserSshKeyController) GetUserSshKeys(c *gin.Context) {
 	user := ctxUser.(models.User)
 	var keys []models.UserSshKey
 	database.DB.Where("user_id = ?", user.ID).Find(&keys)
-	utils.Success(c, keys, "SSH keys retrieved", http.StatusOK)
+	utils.Success(c, gin.H{"ssh_keys": keys}, "SSH keys retrieved", http.StatusOK)
+}
+
+func (s *UserSshKeyController) HardDeleteUserSshKey(c *gin.Context) {
+	ctxUser, _ := c.Get("user")
+	user := ctxUser.(models.User)
+	id := c.Param("id")
+	database.DB.Unscoped().Where("id = ? AND user_id = ?", id, user.ID).Delete(&models.UserSshKey{})
+	utils.Success(c, nil, "SSH key permanently deleted", http.StatusOK)
 }
 
 func (s *UserSshKeyController) GetUserSshKey(c *gin.Context) {
